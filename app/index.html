@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ironbark Catalog Search</title>
+<style>
+  :root { --bg:#224A41; --panel:#1C3B34; --line:#32645B; --ink:#EFF5F3; --muted:#B9CFC7;
+          --accent:#BBD96D; --mint:#70CD96; --warn:#F8947F; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;
+         padding:24px 16px; }
+  .wrap { max-width:1040px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+  html:not(.embed) .wrap::before { content:"Ironbark Supply · catalog search"; font-size:20px; }
+  .mono { font-family:ui-monospace,"SFMono-Regular",Menlo,monospace; }
+  form { display:flex; gap:10px; }
+  input { flex:1; min-width:0; font:inherit; color:var(--ink); background:var(--panel); border:1px solid var(--line);
+          border-radius:20px; padding:10px 16px; outline:none; }
+  input:focus { border-color:var(--accent); }
+  button { font:12px/14px ui-monospace,Menlo,monospace; text-transform:uppercase; letter-spacing:.06em; cursor:pointer;
+           border:1px solid var(--accent); background:var(--accent); color:var(--bg); border-radius:20px; padding:11px 18px; }
+  button:disabled { opacity:.5; cursor:default; }
+  .presets { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { background:transparent; color:var(--muted); border-color:var(--line); text-transform:none; letter-spacing:0;
+          font:13px/16px system-ui,sans-serif; padding:7px 12px; max-width:300px; overflow:hidden;
+          text-overflow:ellipsis; white-space:nowrap; }
+  .chip:hover, .chip.on { color:var(--ink); border-color:var(--accent); }
+  .label { font:11px/14px ui-monospace,Menlo,monospace; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  .expect { color:var(--muted); font-size:13px; min-height:18px; }
+  .expect b { color:var(--ink); font-weight:500; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px) { .cols { grid-template-columns:1fr; } form { flex-direction:column; } }
+  .col { background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:14px; min-height:290px; }
+  .col h3 { margin:0 0 4px; font-size:15px; font-weight:500; }
+  .verdict { font-size:13px; min-height:18px; margin-bottom:8px; }
+  .verdict.hit { color:var(--mint); } .verdict.miss { color:var(--warn); }
+  ol { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  li { padding:8px 10px; border-radius:3px; border:1px solid transparent; }
+  li.target { border-color:var(--mint); background:rgba(112,205,150,.08); }
+  .name { font-size:14px; }
+  .meta { font-size:12px; color:var(--muted); display:flex; justify-content:space-between; gap:8px; margin-top:3px; }
+  .bar { height:3px; background:var(--line); border-radius:2px; margin-top:5px; overflow:hidden; }
+  .bar > i { display:block; height:100%; background:var(--mint); }
+  .sql { background:var(--panel); border:1px solid var(--line); border-radius:4px; }
+  .sql .tabs { display:flex; gap:4px; padding:6px; border-bottom:1px solid var(--line); align-items:center; }
+  .sql .tabs button { background:transparent; border-color:transparent; color:var(--muted); padding:6px 10px; }
+  .sql .tabs button.on { color:var(--accent); border-color:var(--line); }
+  .sql .tabs span { margin-left:auto; padding-right:8px; }
+  pre { margin:0; padding:14px; overflow-x:auto; font:12.5px/1.6 ui-monospace,Menlo,monospace; color:var(--ink); }
+  .err { color:var(--warn); font-size:13px; min-height:18px; }
+  .skeleton { color:var(--muted); font-size:13px; padding:8px 10px; }
+</style>
+<script>if (new URLSearchParams(location.search).has("embed")) document.documentElement.classList.add("embed");</script>
+</head>
+<body>
+<div class="wrap">
+  <form id="f"><input id="q" maxlength="160" placeholder="Describe the part in your own words…" autocomplete="off">
+    <button id="go">Search</button></form>
+  <div><div class="label" style="margin-bottom:8px">Try a held-out search (the model never trained on these products)</div>
+    <div class="presets" id="presets"></div></div>
+  <div class="expect" id="expect"></div>
+  <div class="cols">
+    <div class="col"><h3>Base model</h3><div class="label">all-MiniLM-L6-v2</div><div class="verdict" id="vb"></div><ol id="rb"></ol></div>
+    <div class="col"><h3>Fine-tuned model</h3><div class="label">Tuned on Ironbark searches</div><div class="verdict" id="vt"></div><ol id="rt"></ol></div>
+  </div>
+  <div class="err" id="err"></div>
+  <div class="sql"><div class="tabs"><button class="on" data-m="tuned">Tuned query</button><button data-m="base">Base query</button>
+    <span class="label" id="ms"></span></div><pre id="sql">-- run a search to see the ChalkSQL behind it</pre></div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+let presets = [], last = null, sqlModel = "tuned", target = null;
+// Reports the demo's main actions to the marketing page that embeds this one (never the typed text).
+const track = (action, label) => { try { window.parent.postMessage({ type: "chalk-demo-interaction", action, label }, "*"); } catch (_) {} };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function render(col, rows, verdictEl) {
+  const max = Math.max(...rows.map((r) => r.score), 0.01);
+  $(col).innerHTML = rows.map((r, i) => `<li class="${r.sku === target ? "target" : ""}">
+    <div class="name">${i + 1}. ${esc(r.name)}</div>
+    <div class="meta"><span class="mono">${esc(r.sku)} · ${esc(r.category)}</span><span class="mono">${r.score.toFixed(3)}</span></div>
+    <div class="bar"><i style="width:${Math.max(4, (r.score / max) * 100)}%"></i></div></li>`).join("");
+  if (!target) { verdictEl.textContent = ""; verdictEl.className = "verdict"; return; }
+  const k = rows.findIndex((r) => r.sku === target);
+  verdictEl.textContent = k === 0 ? "Found it first" : k > 0 ? `Found it at #${k + 1}` : "Not in the top 5";
+  verdictEl.className = "verdict " + (k === 0 ? "hit" : k > 0 ? "" : "miss");
+}
+
+function showSql() {
+  if (!last) return;
+  $("sql").textContent = last.sql[sqlModel];
+  $("ms").textContent = `${last.cached ? "cached · " : ""}${last.ms[sqlModel]} ms`;
+}
+
+async function search(text, preset) {
+  target = preset ? preset.sku : null;
+  $("expect").innerHTML = preset ? `Should find: <b>${esc(preset.name)}</b> <span class="mono">(${esc(preset.sku)})</span>` : "";
+  document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", !!preset && c.dataset.q === preset.query));
+  $("err").textContent = ""; $("go").disabled = true;
+  for (const id of ["rb", "rt"]) $(id).innerHTML = '<div class="skeleton">Running ChalkSQL…</div>';
+  $("vb").textContent = $("vt").textContent = "";
+  try {
+    const r = await fetch(`api/search?q=${encodeURIComponent(text)}`);
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.detail || r.statusText);
+    last = body;
+    render("rb", body.base, $("vb")); render("rt", body.tuned, $("vt")); showSql();
+  } catch (e) {
+    $("err").textContent = String(e.message || e);
+    for (const id of ["rb", "rt"]) $(id).innerHTML = "";
+  } finally { $("go").disabled = false; }
+}
+
+$("f").onsubmit = (e) => { e.preventDefault(); const t = $("q").value.trim(); if (t) { track("run_search", "typed"); search(t, presets.find((p) => p.query === t)); } };
+document.querySelectorAll(".sql .tabs button").forEach((b) => b.onclick = () => {
+  sqlModel = b.dataset.m; track("view_sql", sqlModel); document.querySelectorAll(".sql .tabs button").forEach((x) => x.classList.toggle("on", x === b)); showSql();
+});
+fetch("api/presets").then((r) => r.json()).then((ps) => {
+  presets = ps;
+  $("presets").innerHTML = ps.map((p) => `<button class="chip" data-q="${esc(p.query)}" title="${esc(p.query)}">${esc(p.query)}</button>`).join("");
+  document.querySelectorAll(".chip").forEach((c, i) => c.onclick = () => { track("select_preset", `preset_${i + 1}`); const p = presets.find((x) => x.query === c.dataset.q); $("q").value = p.query; search(p.query, p); });
+  if (ps[0]) { $("q").value = ps[0].query; search(ps[0].query, ps[0]); }
+});
+</script>
+</body>
+</html>

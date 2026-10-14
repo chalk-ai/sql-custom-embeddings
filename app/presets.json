@@ -1,0 +1,50 @@
+[
+ {
+  "query": "my hydraulic cylinder drifts down when the pump shuts off, what small insert holds the load",
+  "sku": "IB-85642",
+  "name": "Hydraulic Cartridge Check Valve, SAE-10, Steel, 5000 PSI",
+  "category": "valves"
+ },
+ {
+  "query": "how to automatically shut off sump or tank pump when water level drops",
+  "sku": "IB-41252",
+  "name": "Float Switch, Vertical, SPST, 316 SS Stem, 1/2 in. NPT",
+  "category": "switches, relays and contactors"
+ },
+ {
+  "query": "upper water hose on my truck split and is leaking antifreeze, need a corner shaped replacement",
+  "sku": "IB-20173",
+  "name": "Molded Radiator Hose, EPDM, 90\u00b0 Elbow, 1-1/2\" ID, Polyester Reinforced",
+  "category": "hose and hose fittings"
+ },
+ {
+  "query": "metal clasp with lots of holes so a whole crew can lock a machine off while repairing it",
+  "sku": "IB-40327",
+  "name": "Lockout Hasp, 6-Lock, 1-1/2 in Jaw, Red Steel",
+  "category": "safety and PPE"
+ },
+ {
+  "query": "how to fill holes where pipes or wires go through a fire wall so smoke and flames can't pass",
+  "sku": "IB-18516",
+  "name": "Intumescent Firestop Sealant, UL 1479 Rated, 10.3 oz Cartridge",
+  "category": "adhesives, sealants and tapes"
+ },
+ {
+  "query": "how do I make my lifting chain shorter without cutting it",
+  "sku": "IB-64104",
+  "name": "Clevis Grab Hook 3/8\" Grade 80 Alloy, 7100 lb WLL, Yellow Zinc",
+  "category": "material handling (casters, hoists, straps)"
+ },
+ {
+  "query": "water pressure too high in my house, how do I lower it",
+  "sku": "IB-57931",
+  "name": "Water Pressure Reducing Valve, Bronze, 3/4\" NPT, 25-75 PSI",
+  "category": "valves"
+ },
+ {
+  "query": "valve that adjusts flow automatically from a 4-20 mA controller signal",
+  "sku": "IB-17747",
+  "name": "Pneumatic Control Valve, 2\" Globe, Class 150, with Positioner",
+  "category": "valves"
+ }
+]
