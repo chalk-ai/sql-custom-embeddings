@@ -2,7 +2,7 @@
 #
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx"]
+# dependencies = ["chalkcompute>=2.13.8", "httpx"]
 # ///
 """Generate the fictional Ironbark Supply catalog and shopper searches through the Chalk model gateway.
 
@@ -14,10 +14,10 @@ import asyncio
 import json
 import random
 import re
-import subprocess
 from pathlib import Path
 
 import httpx
+from chalkcompute import ConnectClient
 
 MODEL = "anthropic/claude-sonnet-5-5"
 OUT = Path(__file__).parent / "data"
@@ -51,32 +51,14 @@ CATEGORIES = [
 PER_CATEGORY = 40
 
 
-def gateway() -> tuple[str, dict[str, str]]:
-    cfg = json.loads(subprocess.check_output(["chalk", "config", "--json"]))
-    api = cfg["apiServer"]["value"]
-    tok = httpx.post(
-        f"{api}/v1/oauth/token",
-        json={
-            "client_id": cfg["clientId"]["value"],
-            "client_secret": cfg["clientSecret"]["value"],
-            "grant_type": "client_credentials",
-        },
-        timeout=30,
-    ).json()["access_token"]
-    return f"{api}/v1/router/chat/completions", {
-        "Authorization": f"Bearer {tok}",
-        "X-Chalk-Env-Id": cfg["environment"]["value"],
-    }
-
-
 async def chat(
-    client: httpx.AsyncClient, url: str, headers: dict[str, str], prompt: str
+    client: httpx.AsyncClient, chalk: ConnectClient, prompt: str
 ) -> object:
     for attempt in range(4):
         try:
             r = await client.post(
-                url,
-                headers=headers,
+                f"{chalk.api_server}/v1/router/chat/completions",
+                headers=chalk.request_headers(),
                 json={
                     "model": MODEL,
                     "messages": [{"role": "user", "content": prompt}],
@@ -118,64 +100,64 @@ Return only a JSON object mapping each product id to a list of 4 strings."""
 
 async def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    url, headers = gateway()
-    sem = asyncio.Semaphore(8)
-    async with httpx.AsyncClient() as client:
+    with ConnectClient() as chalk:
+        sem = asyncio.Semaphore(8)
+        async with httpx.AsyncClient() as client:
 
-        async def products_for(cat: str) -> list[dict[str, str]]:
-            async with sem:
-                items = await chat(
-                    client, url, headers, PRODUCT_PROMPT.format(n=PER_CATEGORY, cat=cat)
+            async def products_for(cat: str) -> list[dict[str, str]]:
+                async with sem:
+                    items = await chat(
+                        client, chalk, PRODUCT_PROMPT.format(n=PER_CATEGORY, cat=cat)
+                    )
+                print(f"{cat}: {len(items)}", flush=True)
+                return [
+                    {
+                        "category": cat,
+                        "name": i["name"].strip(),
+                        "description": i["description"].strip(),
+                    }
+                    for i in items
+                ]
+
+            per_cat = await asyncio.gather(*(products_for(c) for c in CATEGORIES))
+            products = []
+            seen: set[str] = set()
+            for items in per_cat:
+                for p in items:
+                    key = p["name"].lower()
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    products.append(p)
+            rng = random.Random(7)
+            for i, sku in enumerate(rng.sample(range(10000, 99999), len(products))):
+                products[i]["sku"] = f"IB-{sku}"
+
+            batches = [products[i : i + 10] for i in range(0, len(products), 10)]
+
+            async def queries_for(batch: list[dict[str, str]]) -> dict[str, list[str]]:
+                listing = "\n".join(
+                    f"- id {p['sku']}: {p['name']} — {p['description']}" for p in batch
                 )
-            print(f"{cat}: {len(items)}", flush=True)
-            return [
-                {
-                    "category": cat,
-                    "name": i["name"].strip(),
-                    "description": i["description"].strip(),
-                }
-                for i in items
-            ]
+                async with sem:
+                    out = await chat(
+                        client, chalk, QUERY_PROMPT.format(items=listing)
+                    )
+                return {k: v for k, v in out.items() if k in {p["sku"] for p in batch}}
 
-        per_cat = await asyncio.gather(*(products_for(c) for c in CATEGORIES))
-        products = []
-        seen: set[str] = set()
-        for items in per_cat:
-            for p in items:
-                key = p["name"].lower()
-                if key in seen:
-                    continue
-                seen.add(key)
-                products.append(p)
-        rng = random.Random(7)
-        for i, sku in enumerate(rng.sample(range(10000, 99999), len(products))):
-            products[i]["sku"] = f"IB-{sku}"
+            results = await asyncio.gather(*(queries_for(b) for b in batches))
 
-        batches = [products[i : i + 10] for i in range(0, len(products), 10)]
-
-        async def queries_for(batch: list[dict[str, str]]) -> dict[str, list[str]]:
-            listing = "\n".join(
-                f"- id {p['sku']}: {p['name']} — {p['description']}" for p in batch
-            )
-            async with sem:
-                out = await chat(
-                    client, url, headers, QUERY_PROMPT.format(items=listing)
-                )
-            return {k: v for k, v in out.items() if k in {p["sku"] for p in batch}}
-
-        results = await asyncio.gather(*(queries_for(b) for b in batches))
-
-    with (OUT / "products.jsonl").open("w") as f:
-        for p in products:
-            f.write(json.dumps(p) + "\n")
-    n = 0
-    with (OUT / "queries.jsonl").open("w") as f:
-        for res in results:
-            for sku, qs in res.items():
-                for q in qs:
-                    f.write(json.dumps({"sku": sku, "query": q.strip()}) + "\n")
-                    n += 1
-    print(f"{len(products)} products, {n} queries")
+        with (OUT / "products.jsonl").open("w") as f:
+            for p in products:
+                f.write(json.dumps(p) + "\n")
+        n = 0
+        with (OUT / "queries.jsonl").open("w") as f:
+            for res in results:
+                for sku, qs in res.items():
+                    for q in qs:
+                        f.write(json.dumps({"sku": sku, "query": q.strip()}) + "\n")
+                        n += 1
+        print(f"{len(products)} products, {n} queries")
 
 
 if __name__ == "__main__":

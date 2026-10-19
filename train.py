@@ -2,12 +2,12 @@
 #
 # /// script
 # requires-python = ">=3.12,<3.14"
-# dependencies = ["chalkcompute==2.13.5"]
+# dependencies = ["chalkcompute>=2.13.8"]
 # ///
 """Upload the Ironbark catalog as a Chalk dataset and fine-tune the embedding model on a GPU.
 
-    ./train.py                  # upload the dataset, fine-tune on an L4, wait
-    ./train.py --skip-upload    # reuse the dataset's latest revision
+    ./train.py # upload the dataset, fine-tune on an L4, wait
+    ./train.py # reuse the dataset's latest revision
 
 The training run receives the dataset as a Polars LazyFrame. It evaluates the base model,
 fine-tunes it on the training searches, evaluates again on searches for products it never
@@ -16,10 +16,7 @@ saw, and writes the model and the metrics to the Chalk volume `sql-custom-embedd
 
 from __future__ import annotations
 
-import argparse
 import json
-import os
-import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -103,17 +100,6 @@ def finetune_catalog_embeddings(df: Any, config: dict[str, Any]) -> None:
     print(f"wrote {len(buf.getvalue()):,} bytes to volume {MODEL_VOLUME}", flush=True)
 
 
-def load_chalk_env(env_id: str | None) -> None:
-    if "CHALK_CLIENT_ID" not in os.environ:
-        cfg = json.loads(subprocess.check_output(["chalk", "config", "--json"]))
-        os.environ["CHALK_API_SERVER"] = cfg["apiServer"]["value"]
-        os.environ["CHALK_CLIENT_ID"] = cfg["clientId"]["value"]
-        os.environ["CHALK_CLIENT_SECRET"] = cfg["clientSecret"]["value"]
-        os.environ.setdefault("CHALK_ENVIRONMENT_ID", cfg["environment"]["value"])
-    if env_id:
-        os.environ["CHALK_ENVIRONMENT_ID"] = env_id
-
-
 def dataset_columns(data_dir: Path) -> dict[str, list[Any]]:
     cols: dict[str, list[Any]] = {
         k: [] for k in ("kind", "sku", "category", "name", "description", "query")
@@ -144,20 +130,11 @@ def dataset_columns(data_dir: Path) -> dict[str, list[Any]]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--env-id", default=None)
-    parser.add_argument("--gpu", default="nvidia-l4")
-    parser.add_argument("--epochs", type=int, default=3)
-    parser.add_argument("--skip-upload", action="store_true")
-    args = parser.parse_args()
-
-    load_chalk_env(args.env_id)
     import chalkcompute
     from chalkcompute import DatasetClient, Image, Volume
 
-    if not args.skip_upload:
-        ref = DatasetClient().upload(DATASET, dataset_columns(HERE / "data"))
-        print(f"uploaded dataset {ref}")
+    ref = DatasetClient().upload(DATASET, dataset_columns(HERE / "data"))
+    print(f"uploaded dataset {ref}")
 
     image = (
         # PyTorch's CUDA runtime image already has torch; the base model is baked in so the
@@ -183,13 +160,13 @@ def main() -> None:
         dataset=DATASET,
         image=image,
         name="sql-custom-embeddings",
-        gpu=args.gpu,
+        gpu='nvidia-l4',
         cpu="4",
         memory="16Gi",
     )(finetune_catalog_embeddings)
 
     config = {
-        "epochs": args.epochs,
+        "epochs": 3,
         "batch_size": 64,
         "lr": 5e-5,
         "seed": 7,
