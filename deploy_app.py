@@ -22,15 +22,13 @@ HERE = Path(__file__).resolve().parent
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env-id", default=None)
-    parser.add_argument("--name", default="ironbark-search")
     parser.add_argument(
         "--catalog",
         required=True,
         help="parquet with sku, name, category, base_vec, tuned_vec",
     )
     args = parser.parse_args()
-    load_chalk_env(args.env_id)
+    load_chalk_env()
     from chalkcompute import Image, ReadinessProbe, ScalingGroup
 
     image = (
@@ -55,7 +53,7 @@ def main() -> None:
     )
     group = ScalingGroup(
         image=image,
-        name=args.name,
+        name='ironbark-search',
         entrypoint=["python", "/app/server.py"],
         port=8080,
         cpu="500m",

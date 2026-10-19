@@ -6,7 +6,7 @@
 # ///
 """Deploy the base and fine-tuned embedding models as Chalk functions.
 
-    ./deploy_functions.py --model-dir model/        # the fine-tuned model from train.py
+    ./deploy_functions.py --model-dir model/ # the fine-tuned model from train.py
 
 Every query engine in the environment then reaches them by catalog name:
 
@@ -16,7 +16,6 @@ Every query engine in the environment then reaches them by catalog name:
 from __future__ import annotations
 
 import argparse
-import os
 import threading
 from pathlib import Path
 
@@ -59,11 +58,8 @@ def ironbark_embed_tuned(text: str) -> list[float]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env-id", default=None)
     parser.add_argument("--model-dir", type=Path, required=True)
     args = parser.parse_args()
-    if args.env_id:
-        os.environ["CHALK_ENVIRONMENT"] = args.env_id
     import chalkcompute
     from chalkcompute import Image, RemoteFunction
 

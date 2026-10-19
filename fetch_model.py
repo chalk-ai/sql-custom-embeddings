@@ -6,21 +6,15 @@
 # ///
 """Download the fine-tuned model and metrics that train.py's run wrote to its Chalk volume.
 
-./fetch_model.py --env-id <training environment>   # writes model/ and summary.json
+./fetch_model.py # writes model/ and summary.json
 """
 
-import argparse
 import io
 import tarfile
 from pathlib import Path
 
-from chalk_env import load_chalk_env
 from train import MODEL_VOLUME
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--env-id", default=None)
-args = parser.parse_args()
-load_chalk_env(args.env_id)
 from chalkcompute import Volume
 
 here = Path(__file__).resolve().parent

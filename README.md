@@ -53,8 +53,8 @@ training, and a bucket your environment's ChalkSQL can read.
 
 ```bash
 ./generate_data.py                       # optional: data/ already has the generated catalog
-./train.py --env-id <gpu-environment>    # ~6 min end to end, most of it image build and pull
-./fetch_model.py --env-id <gpu-environment>
+./train.py # ~6 min end to end, most of it image build and pull
+./fetch_model.py
 ./deploy_functions.py --model-dir model/
 # Upload data/*.parquet text tables to your bucket, then:
 ./build_catalog_vectors.py gs://<bucket>/catalog_text.parquet data/catalog.parquet
@@ -99,5 +99,5 @@ this example.
 
 The SDK reads credentials, API host, and the selected environment from your existing
 `chalk login` in `~/.chalk.yml`, including project-scoped and default logins.
-For unattended runs, `CHALK_CLIENT_ID` and `CHALK_CLIENT_SECRET` remain supported. Where available, `--env-id`
-overrides the target environment; otherwise the SDK uses your login or environment settings.
+For unattended runs, `CHALK_CLIENT_ID` and `CHALK_CLIENT_SECRET` remain supported.
+The examples use the current environment selected by your Chalk login.
