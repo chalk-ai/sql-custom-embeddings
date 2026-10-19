@@ -2,7 +2,7 @@
 #
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx"]
+# dependencies = ["chalkcompute==2.13.5", "httpx"]
 # ///
 """Generate the fictional Ironbark Supply catalog and shopper searches through the Chalk model gateway.
 
@@ -14,7 +14,6 @@ import asyncio
 import json
 import random
 import re
-import subprocess
 from pathlib import Path
 
 import httpx
@@ -52,21 +51,17 @@ PER_CATEGORY = 40
 
 
 def gateway() -> tuple[str, dict[str, str]]:
-    cfg = json.loads(subprocess.check_output(["chalk", "config", "--json"]))
-    api = cfg["apiServer"]["value"]
-    tok = httpx.post(
-        f"{api}/v1/oauth/token",
-        json={
-            "client_id": cfg["clientId"]["value"],
-            "client_secret": cfg["clientSecret"]["value"],
-            "grant_type": "client_credentials",
-        },
-        timeout=30,
-    ).json()["access_token"]
-    return f"{api}/v1/router/chat/completions", {
-        "Authorization": f"Bearer {tok}",
-        "X-Chalk-Env-Id": cfg["environment"]["value"],
-    }
+    from chalkcompute import ConnectClient
+
+    client = ConnectClient()
+    try:
+        client._ensure_auth()
+        return f"{client._api_server.rstrip('/')}/v1/router/chat/completions", {
+            "Authorization": f"Bearer {client._access_token}",
+            "X-Chalk-Env-Id": client._env_id,
+        }
+    finally:
+        client.close()
 
 
 async def chat(

@@ -15,7 +15,7 @@ import argparse
 import os
 from pathlib import Path
 
-from train import load_chalk_env
+from chalk_env import load_chalk_env
 
 HERE = Path(__file__).resolve().parent
 
@@ -41,6 +41,7 @@ def main() -> None:
                 "uvicorn[standard]==0.35.0",
                 "httpx==0.28.1",
                 "pyarrow==21.0.0",
+                "chalkcompute==2.13.5",
             ]
         )
         .add_local_file(str(HERE / "app/server.py"), "/app/server.py", strategy="copy")

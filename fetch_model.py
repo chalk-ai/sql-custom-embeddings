@@ -14,7 +14,8 @@ import io
 import tarfile
 from pathlib import Path
 
-from train import MODEL_VOLUME, load_chalk_env
+from chalk_env import load_chalk_env
+from train import MODEL_VOLUME
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--env-id", default=None)

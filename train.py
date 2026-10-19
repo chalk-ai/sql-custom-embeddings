@@ -19,7 +19,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -103,17 +102,6 @@ def finetune_catalog_embeddings(df: Any, config: dict[str, Any]) -> None:
     print(f"wrote {len(buf.getvalue()):,} bytes to volume {MODEL_VOLUME}", flush=True)
 
 
-def load_chalk_env(env_id: str | None) -> None:
-    if "CHALK_CLIENT_ID" not in os.environ:
-        cfg = json.loads(subprocess.check_output(["chalk", "config", "--json"]))
-        os.environ["CHALK_API_SERVER"] = cfg["apiServer"]["value"]
-        os.environ["CHALK_CLIENT_ID"] = cfg["clientId"]["value"]
-        os.environ["CHALK_CLIENT_SECRET"] = cfg["clientSecret"]["value"]
-        os.environ.setdefault("CHALK_ENVIRONMENT_ID", cfg["environment"]["value"])
-    if env_id:
-        os.environ["CHALK_ENVIRONMENT_ID"] = env_id
-
-
 def dataset_columns(data_dir: Path) -> dict[str, list[Any]]:
     cols: dict[str, list[Any]] = {
         k: [] for k in ("kind", "sku", "category", "name", "description", "query")
@@ -151,7 +139,8 @@ def main() -> None:
     parser.add_argument("--skip-upload", action="store_true")
     args = parser.parse_args()
 
-    load_chalk_env(args.env_id)
+    if args.env_id:
+        os.environ["CHALK_ENVIRONMENT"] = args.env_id
     import chalkcompute
     from chalkcompute import DatasetClient, Image, Volume
 
