@@ -2,7 +2,7 @@
 #
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["chalkcompute==2.13.5", "pyarrow"]
+# dependencies = ["chalkcompute>=2.13.8", "pyarrow"]
 # ///
 """Embed every catalog item with both models from ChalkSQL and store the vectors as parquet.
 

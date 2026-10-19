@@ -2,7 +2,7 @@
 #
 # /// script
 # requires-python = ">=3.12,<3.14"
-# dependencies = ["chalkcompute==2.13.5"]
+# dependencies = ["chalkcompute>=2.13.8"]
 # ///
 """Upload the Ironbark catalog as a Chalk dataset and fine-tune the embedding model on a GPU.
 

@@ -2,7 +2,7 @@
 #
 # /// script
 # requires-python = ">=3.12,<3.14"
-# dependencies = ["chalkcompute==2.13.5"]
+# dependencies = ["chalkcompute>=2.13.8"]
 # ///
 """Download the fine-tuned model and metrics that train.py's run wrote to its Chalk volume.
 

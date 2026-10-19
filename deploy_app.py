@@ -2,7 +2,7 @@
 #
 # /// script
 # requires-python = ">=3.12,<3.14"
-# dependencies = ["chalkcompute==2.13.5"]
+# dependencies = ["chalkcompute>=2.13.8"]
 # ///
 """Deploy the comparison page: a scaling group that runs each search through ChalkSQL twice.
 
@@ -12,10 +12,8 @@
 from __future__ import annotations
 
 import argparse
-import os
 from pathlib import Path
 
-from chalk_env import load_chalk_env
 
 HERE = Path(__file__).resolve().parent
 
@@ -28,7 +26,6 @@ def main() -> None:
         help="parquet with sku, name, category, base_vec, tuned_vec",
     )
     args = parser.parse_args()
-    load_chalk_env()
     from chalkcompute import Image, ReadinessProbe, ScalingGroup
 
     image = (
@@ -39,7 +36,7 @@ def main() -> None:
                 "uvicorn[standard]==0.35.0",
                 "httpx==0.28.1",
                 "pyarrow==21.0.0",
-                "chalkcompute==2.13.5",
+                "chalkcompute>=2.13.8",
             ]
         )
         .add_local_file(str(HERE / "app/server.py"), "/app/server.py", strategy="copy")
@@ -63,8 +60,6 @@ def main() -> None:
         # The app calls ChalkSQL as this workload's own identity, so no client secret ships with it.
         chalk_identity=True,
         env={
-            "CHALK_API_SERVER": os.environ["CHALK_API_SERVER"],
-            "CHALK_ENVIRONMENT_ID": os.environ["CHALK_ENVIRONMENT_ID"],
             "CATALOG_PARQUET": args.catalog,
         },
         readiness_probe=ReadinessProbe.http("/healthz"),
