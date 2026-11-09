@@ -44,6 +44,16 @@ ORDER BY score DESC
 LIMIT 5"""
 
 app = FastAPI()
+
+
+# This host exists only to back a chalk.ai/demos page; keep it out of search results.
+@app.middleware("http")
+async def add_noindex_header(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
+
 _token: dict[str, Any] = {"value": None, "expires": 0.0}
 _token_lock = asyncio.Lock()
 _inflight = asyncio.Semaphore(4)
